@@ -103,3 +103,17 @@
         overflow-y: auto;
     }
 }
+
+.nav-link-button {
+    background: none;
+    border: none;
+    padding: 0;
+    color: rgba(255,255,255,0.65); /* Barva textu odkazu v menu */
+    text-align: left;
+    width: 100%;
+    display: block;
+}
+
+    .nav-link-button:hover {
+        color: rgba(255,255,255,0.85);
+    }

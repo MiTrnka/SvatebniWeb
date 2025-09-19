@@ -1,6 +1,15 @@
-﻿@* Stránka pro editaci nového nebo stávajícího svatebního webu*@
-@page "/muj-web/{Id:int}"
-@using Microsoft.AspNetCore.Components.Authorization
+﻿@page "/muj-web/{Id:int}"
+@attribute [Authorize]
+
+@*
+    Přidali jsme @using System.Security.Claims, abychom mohli snadno
+    získat ID aktuálně přihlášeného uživatele.
+*@
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using SvatebniWeb.Web.Data
+@using SvatebniWeb.Web.Data.Models
 
 @inject ApplicationDbContext DbContext
 @inject NavigationManager NavigationManager
@@ -12,67 +21,68 @@
 
 @if (wedding != null)
 {
+    @* Formulář zůstává beze změny *@
     <EditForm Model="wedding" OnValidSubmit="HandleValidSubmit" FormName="EditWedding">
         <DataAnnotationsValidator />
         <ValidationSummary />
 
         @if (!string.IsNullOrEmpty(errorMessage))
         {
-            <div class="error-message">@errorMessage</div>
+            <div class="error-summary">@errorMessage</div>
         }
 
-        <div class="form-group">
+        <div class="form-field">
             <label for="title">Hlavní nadpis webu:</label>
-            <InputText id="title" @bind-Value="wedding.Title" />
+            <InputText id="title" class="input-field" @bind-Value="wedding.Title" />
             <ValidationMessage For="() => wedding.Title" />
         </div>
 
-        <div class="form-group">
+        <div class="form-field">
             <label for="slug">Text do URL adresy (bez diakritiky a mezer):</label>
             <div class="url-group">
                 <span class="url-prefix">https://svatebniweb.cz/</span>
-                <InputText id="slug" @bind-Value="wedding.UrlSlug" />
+                <InputText id="slug" class="input-field" @bind-Value="wedding.UrlSlug" />
             </div>
             <ValidationMessage For="() => wedding.UrlSlug" />
         </div>
 
-        <button type="submit" class="btn btn-success">Uložit změny</button>
-        <a href="/memberarea/moje-weby" class="btn btn-secondary">Zrušit</a>
+        <button type="submit" class="submit-button">Uložit změny</button>
+        <a href="/moje-weby" class="cancel-button">Zrušit</a>
     </EditForm>
 }
 else
 {
-    <p><em>Načítám data...</em></p>
+    @*
+        Pokud se data stále načítají NEBO pokud uživatel nemá oprávnění,
+        zobrazíme tuto zprávu.
+    *@
+    <p><em>@loadingMessage</em></p>
 }
 
 @code {
-    /// <summary>
-    /// Parametr z URL adresy, který určuje ID editovaného webu.
-    /// Pokud je 0, jedná se o nový web.
-    /// </summary>
     [Parameter]
     public int Id { get; set; }
 
-    /// <summary>
-    /// Objekt, který je napojený na formulář a drží si editovaná data.
-    /// </summary>
     private Wedding? wedding;
     private string pageTitle = "Načítání...";
     private string? errorMessage;
+    private string loadingMessage = "Načítám data..."; // Přidali jsme proměnnou pro načítací/chybovou hlášku
 
     /// <summary>
-    /// Tato metoda se zavolá, když komponenta přijme parametry (v našem případě Id z URL).
-    /// Je ideální pro načítání dat.
+    /// Metoda životního cyklu, která se zavolá při načtení komponenty.
+    /// Zde provádíme klíčové bezpečnostní kontroly.
     /// </summary>
     protected override async Task OnParametersSetAsync()
     {
+        // Získáme stav přihlášení a ID aktuálního uživatele.
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         var currentUserId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
 
+        // Pojistka pro případ, že by se sem dostal nepřihlášený uživatel.
+        // I když máme [Authorize], je dobré mít obranu i zde.
         if (string.IsNullOrEmpty(currentUserId))
         {
-            // Toto by se nemělo stát díky [Authorize], ale je to pojistka.
-            NavigationManager.NavigateTo("/Account/Login");
+            NavigationManager.NavigateTo("/login");
             return;
         }
 
@@ -83,35 +93,38 @@ else
             {
                 Title = "",
                 UrlSlug = "",
-                OwnerId = currentUserId // Důležité: rovnou přiřadíme vlastníka
+                OwnerId = currentUserId // Důležité: Novému webu rovnou přiřadíme vlastníka
             };
         }
         else // Režim: Editace existujícího webu
         {
             pageTitle = "Úprava svatebního webu";
-            // Najdeme web v databázi podle ID
+            // Najdeme web v databázi podle ID z URL.
             wedding = await DbContext.Weddings.FindAsync(Id);
 
-            // DŮLEŽITÝ BEZPEČNOSTNÍ KROK:
-            // Ověříme, že načtený web opravdu patří přihlášenému uživateli.
+            // =================================================================
+            // ZDE JE NOVÁ, KLÍČOVÁ BEZPEČNOSTNÍ KONTROLA
+            // =================================================================
+            // Ověříme, že načtený web existuje A ZÁROVEŇ že jeho OwnerId
+            // se shoduje s ID přihlášeného uživatele.
             if (wedding == null || wedding.OwnerId != currentUserId)
             {
                 // Pokud ne, zabráníme v editaci!
-                errorMessage = "Tento záznam neexistuje nebo k němu nemáte oprávnění.";
-                wedding = null; // Zabráníme zobrazení formuláře
+                // Změníme zprávu a nastavíme 'wedding' na null, aby se nezobrazil formulář.
+                loadingMessage = "Tento záznam neexistuje nebo k němu nemáte oprávnění.";
+                wedding = null;
             }
         }
     }
 
     /// <summary>
-    /// Metoda se zavolá po odeslání validního formuláře.
+    /// Metoda pro uložení formuláře. Zůstává beze změny.
     /// </summary>
     private async Task HandleValidSubmit()
     {
         errorMessage = null;
         if (wedding == null) return;
 
-        // Zkontrolujeme unikátnost UrlSlug
         var slugExists = await DbContext.Weddings.AnyAsync(w => w.UrlSlug == wedding.UrlSlug && w.Id != wedding.Id);
         if (slugExists)
         {
@@ -119,13 +132,15 @@ else
             return;
         }
 
-        if (Id == 0) // Vytváříme nový
+        if (Id == 0)
         {
             DbContext.Weddings.Add(wedding);
         }
-        // Pokud editujeme, Entity Framework už změny sleduje, nemusíme dělat nic víc.
-
+        else
+        {
+            DbContext.Weddings.Update(wedding);
+        }
         await DbContext.SaveChangesAsync();
-        NavigationManager.NavigateTo("/memberarea/moje-weby");
+        NavigationManager.NavigateTo("/moje-weby");
     }
 }

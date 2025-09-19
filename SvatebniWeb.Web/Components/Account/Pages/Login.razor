@@ -1,0 +1,35 @@
+﻿@page "/account/login"
+
+<PageTitle>Přihlášení</PageTitle>
+
+<div class="login-container">
+    <h3>Přihlášení</h3>
+
+    <form action="/account/login" method="post">
+        <AntiforgeryToken />
+
+        @if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <div class="error-summary">
+                @ErrorMessage
+            </div>
+        }
+
+        <div class="form-field">
+            <label for="email">E-mail:</label>
+            <input id="email" name="email" class="input-field" />
+        </div>
+
+        <div class="form-field">
+            <label for="password">Heslo:</label>
+            <input id="password" name="password" type="password" class="input-field" />
+        </div>
+
+        <button type="submit" class="submit-button">Přihlásit se</button>
+    </form>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    private string? ErrorMessage { get; set; }
+}

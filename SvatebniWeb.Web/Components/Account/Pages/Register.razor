@@ -1,0 +1,125 @@
+﻿@page "/account/register"
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Identity
+@using SvatebniWeb.Web.Data
+
+@* Služby, které si "injektujeme" pro práci s uživateli a navigací. *@
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager NavigationManager
+
+<PageTitle>Registrace</PageTitle>
+
+<div class="register-container">
+    <h3>Registrace nového uživatele</h3>
+
+    @* EditForm je základní komponenta pro formuláře v Blazoru.
+        - Model="Model": Propojí formulář s naším C# objektem 'Model'.
+        - OnValidSubmit="HandleRegister": Určuje metodu, která se zavolá po odeslání validního formuláře.
+        - FormName="RegisterForm": Dává formuláři unikátní jméno pro interní účely.
+    *@
+    <EditForm Model="Model" OnValidSubmit="HandleRegister" FormName="RegisterForm">
+
+        @* Tato komponenta automaticky zapne validaci podle pravidel definovaných v naší třídě RegisterModel. *@
+        <DataAnnotationsValidator />
+
+        @* Blok, který se zobrazí pouze v případě, že proces registrace selže. *@
+        @if (errorMessages.Any())
+        {
+            <div class="error-summary">
+                <ul>
+                    @foreach (var error in errorMessages)
+                    {
+                        <li>@error</li>
+                    }
+                </ul>
+            </div>
+        }
+
+        @* Každé pole formuláře zabalíme do vlastního kontejneru pro snadnější stylování. *@
+        <div class="form-field">
+            <label for="email">E-mail:</label>
+            <InputText id="email" class="input-field" @bind-Value="Model.Email" />
+            <ValidationMessage For="() => Model.Email" />
+        </div>
+
+        <div class="form-field">
+            <label for="password">Heslo:</label>
+            <InputText id="password" type="password" class="input-field" @bind-Value="Model.Password" />
+            <ValidationMessage For="() => Model.Password" />
+        </div>
+
+        <div class="form-field">
+            <label for="confirmPassword">Potvrzení hesla:</label>
+            <InputText id="confirmPassword" type="password" class="input-field" @bind-Value="Model.ConfirmPassword" />
+            <ValidationMessage For="() => Model.ConfirmPassword" />
+        </div>
+
+        <button type="submit" class="submit-button">Zaregistrovat se</button>
+    </EditForm>
+</div>
+
+
+@code {
+    /// <summary>
+    /// Instance našeho modelu, která drží data z formuláře.
+    /// </summary>
+    private RegisterModel Model { get; set; } = new();
+
+    /// <summary>
+    /// Seznam chybových hlášek pro zobrazení uživateli.
+    /// </summary>
+    private List<string> errorMessages = new();
+
+    /// <summary>
+    /// Metoda, která se spustí po odeslání validního formuláře.
+    /// </summary>
+    private async Task HandleRegister()
+    {
+        errorMessages.Clear();
+
+        var user = new ApplicationUser
+        {
+            UserName = Model.Email,
+            Email = Model.Email
+        };
+
+        // Pokusíme se uživatele vytvořit pomocí služby UserManager.
+        var result = await UserManager.CreateAsync(user, Model.Password);
+
+        if (result.Succeeded)
+        {
+            // Pokud se registrace podařila, přiřadíme novému uživateli roli "User".
+            await UserManager.AddToRoleAsync(user, "User");
+
+            // Přesměrujeme uživatele na stránku pro přihlášení.
+            NavigationManager.NavigateTo("/login");
+        }
+        else
+        {
+            // Pokud došlo k chybě, uložíme popis chyb pro zobrazení.
+            foreach (var error in result.Errors)
+            {
+                errorMessages.Add(error.Description);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Třída sloužící jako model pro registrační formulář.
+    /// Definuje vlastnosti pro jednotlivá pole a jejich validační pravidla.
+    /// </summary>
+    public class RegisterModel
+    {
+        [Required(ErrorMessage = "E-mail je povinný.")]
+        [EmailAddress(ErrorMessage = "Zadejte platnou e-mailovou adresu.")]
+        public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Heslo je povinné.")]
+        [DataType(DataType.Password)]
+        public string Password { get; set; } = string.Empty;
+
+        [DataType(DataType.Password)]
+        [Compare("Password", ErrorMessage = "Hesla se neshodují.")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+}

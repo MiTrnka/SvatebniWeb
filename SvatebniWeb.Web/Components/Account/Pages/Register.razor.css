@@ -1,0 +1,88 @@
+﻿/*
+    Hlavní kontejner pro celý registrační formulář.
+    - max-width: Omezuje maximální šířku, aby na velkých obrazovkách nebyl příliš roztažený.
+    - margin: Centrovaní kontejneru na stránce.
+    - padding: Vnitřní odsazení.
+    - border, border-radius, box-shadow: Vizuální styl pro ohraničení a stín.
+*/
+.register-container {
+    max-width: 500px;
+    margin: 2rem auto;
+    padding: 2rem;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/*
+    Kontejner pro jeden prvek formuláře (např. label + input).
+    - margin-bottom: Vytváří vertikální mezeru mezi jednotlivými poli.
+*/
+.form-field {
+    margin-bottom: 1.5rem;
+}
+
+    /*
+        Styl pro popisek (label) pole.
+        - display: block: Zajistí, že popisek bude na samostatném řádku nad polem.
+        - margin-bottom: Malá mezera mezi popiskem a vstupním polem.
+    */
+    .form-field label {
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+
+/*
+    Styl pro textová vstupní pole (input).
+    - width: 100%: Pole se roztáhne na celou šířku kontejneru.
+    - padding: Vnitřní odsazení pro text.
+    - border: decentní ohraničení.
+    - border-radius: Lehce zakulacené rohy.
+*/
+.input-field {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+/*
+    Styl pro hlavní odesílací tlačítko.
+    - padding: Vnitřní odsazení.
+    - background-color, color: Barva pozadí a textu.
+    - border: Bez ohraničení.
+    - border-radius: Zakulacené rohy.
+    - cursor: pointer: Změní kurzor myši na "ručičku" při najetí.
+    - transition: Plynulý přechod pro efekt při najetí myší.
+*/
+.submit-button {
+    padding: 0.75rem 1.5rem;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+    /*
+        Styl pro tlačítko po najetí myší (hover efekt).
+    */
+    .submit-button:hover {
+        background-color: #0056b3;
+    }
+
+/*
+    Styl pro souhrn chybových hlášek.
+    - padding, margin-bottom: Odsazení.
+    - background-color, color, border: Barevné odlišení chybového bloku.
+    - border-radius: Zakulacené rohy.
+*/
+.error-summary {
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+    border-radius: 4px;
+}

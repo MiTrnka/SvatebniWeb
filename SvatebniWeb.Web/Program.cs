@@ -1,7 +1,11 @@
-using SvatebniWeb.Web.Components;
+using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Server;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SvatebniWeb.Web.Components;
 using SvatebniWeb.Web.Data;
+using System.Security.Claims;
 
 namespace SvatebniWeb.Web
 {
@@ -11,83 +15,92 @@ namespace SvatebniWeb.Web
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            builder.Services.AddRazorComponents()
-                .AddInteractiveServerComponents();
-
-            // Pøipojení k databázi a registrace DbContextu
-            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+            builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseNpgsql(connectionString));
 
-            // Øíkáme aplikaci, aby používala Identity pro uživatele (ApplicationUser) a role (IdentityRole)
-            // a ukládala je pomocí našeho ApplicationDbContext.
-            builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+            // Registrace základních služeb pro Identity a propojení s Blazorem
+            builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme).AddIdentityCookies();
+            builder.Services.AddIdentityCore<ApplicationUser>(options =>
             {
-                // Zde si mùžete nastavit pravidla pro hesla, atd.
+                options.SignIn.RequireConfirmedAccount = false;
                 options.Password.RequireDigit = false;
-                options.Password.RequiredLength = 4;
-                options.Password.RequireNonAlphanumeric = false;
-                options.Password.RequireUppercase = false;
                 options.Password.RequireLowercase = false;
+                options.Password.RequireUppercase = false;
+                options.Password.RequireNonAlphanumeric = false;
+                options.Password.RequiredLength = 4;
             })
-                .AddEntityFrameworkStores<ApplicationDbContext>();
+                .AddRoles<IdentityRole>()
+                .AddEntityFrameworkStores<ApplicationDbContext>()
+                .AddSignInManager();
+
+            builder.Services.AddCascadingAuthenticationState();
+            builder.Services.AddScoped<AuthenticationStateProvider, ServerAuthenticationStateProvider>();
 
             var app = builder.Build();
 
             if (!app.Environment.IsDevelopment())
             {
-                app.UseExceptionHandler("/Error");
+                app.UseExceptionHandler("/error");
                 app.UseHsts();
             }
 
-            // Po sestavení aplikace zavoláme naši metodu pro vytvoøení admina a rolí
-            await SeedRolesAndAdminAsync(app.Services);
-            // --- KONEC NOVÉ ÈÁSTI ---
-
             app.UseHttpsRedirection();
-
+            app.UseStaticFiles();
+            app.UseRouting();
+            app.UseAuthentication();
+            app.UseAuthorization();
             app.UseAntiforgery();
 
-            app.MapStaticAssets();
-            app.MapRazorComponents<App>()
-                .AddInteractiveServerRenderMode();
+            await SeedRolesAndAdminAsync(app.Services);
+
+            app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
+
+            // =================================================================
+            // ZDE JE KLÍÈOVÁ ZMÌNA: Vlastní endpointy pro pøihlášení a odhlášení
+            // =================================================================
+            // Tento endpoint pøijme data z pøihlašovacího formuláøe
+            app.MapPost("/account/login", async (HttpContext httpContext, SignInManager<ApplicationUser> signInManager, [FromForm] string email, [FromForm] string password) =>
+            {
+                var result = await signInManager.PasswordSignInAsync(email, password, isPersistent: false, lockoutOnFailure: false);
+                if (result.Succeeded)
+                {
+                    return Results.LocalRedirect("/moje-weby");
+                }
+                // V pøípadì chyby pøesmìrujeme zpìt s chybovou hláškou
+                return Results.LocalRedirect("/login?ErrorMessage=Neplatné pøihlašovací údaje.");
+            });
+
+            // Tento endpoint zpracuje odhlášení
+            app.MapPost("/account/logout", async (HttpContext httpContext, SignInManager<ApplicationUser> signInManager) =>
+            {
+                await signInManager.SignOutAsync();
+                return Results.LocalRedirect("/");
+            });
 
             app.Run();
         }
 
-        // Metoda pro vytvoøení rolí a admina ---
         private static async Task SeedRolesAndAdminAsync(IServiceProvider serviceProvider)
         {
-            // Vytvoøíme si "scope", abychom mohli získat pøístup ke službám
             using var scope = serviceProvider.CreateScope();
-            var services = scope.ServiceProvider;
-
-            var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
-            var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
-
-            // Vytvoøení role "Admin", pokud neexistuje
-            if (!await roleManager.RoleExistsAsync("Admin"))
+            var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            string[] roleNames = { "Admin", "User" };
+            foreach (var roleName in roleNames)
             {
-                await roleManager.CreateAsync(new IdentityRole("Admin"));
-            }
-
-            // Vytvoøení uživatele "admin", pokud neexistuje
-            if (await userManager.FindByNameAsync("admin") == null)
-            {
-                var adminUser = new ApplicationUser
+                if (!await roleManager.RoleExistsAsync(roleName))
                 {
-                    UserName = "admin",
-                    Email = "mitrnka@gmail.com", // Doplòte skuteèný email
-                    EmailConfirmed = true
-                };
-
-                var result = await userManager.CreateAsync(adminUser, "admin123");
-
-                // Pokud se uživatel úspìšnì vytvoøil, pøiøadíme mu roli "Admin"
-                if (result.Succeeded)
-                {
-                    await userManager.AddToRoleAsync(adminUser, "Admin");
+                    await roleManager.CreateAsync(new IdentityRole(roleName));
                 }
+            }
+            var adminEmail = "admin@svatebniweb.cz";
+            if (await userManager.FindByEmailAsync(adminEmail) == null)
+            {
+                var adminUser = new ApplicationUser { UserName = adminEmail, Email = adminEmail, EmailConfirmed = true };
+                await userManager.CreateAsync(adminUser, "admin");
+                await userManager.AddToRoleAsync(adminUser, "Admin");
             }
         }
     }
