@@ -1,7 +1,27 @@
 ﻿@page "/"
+@using SvatebniWeb.Web.Data
+@using SvatebniWeb.Web.Data.Models
+@inject ApplicationDbContext DbContext
 
 <PageTitle>Home</PageTitle>
 
 <h1>Hello, world prod 1!</h1>
 
 Welcome to your new app.
+
+<h2>Seznam svateb:</h2>
+<ul>
+    @foreach (var wedding in weddings)
+    {
+        <li>@wedding.Title</li>
+    }
+</ul>
+
+@code {
+    private List<Wedding> weddings = new List<Wedding>();
+
+    protected override void OnInitialized()
+    {
+        weddings = DbContext.Weddings.ToList();
+    }
+}
