@@ -92,7 +92,7 @@
             await UserManager.AddToRoleAsync(user, "User");
 
             // Přesměrujeme uživatele na stránku pro přihlášení.
-            NavigationManager.NavigateTo("/login");
+            NavigationManager.NavigateTo("/account/login");
         }
         else
         {
