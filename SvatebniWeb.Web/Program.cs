@@ -1,4 +1,8 @@
 using SvatebniWeb.Web.Components;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using SvatebniWeb.Web.Data;
+
 
 namespace SvatebniWeb.Web
 {
