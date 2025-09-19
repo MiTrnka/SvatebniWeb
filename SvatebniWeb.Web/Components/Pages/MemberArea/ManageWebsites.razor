@@ -1,0 +1,113 @@
+﻿@* Stránka se seznamem uživatelových svatebních webů*@
+@page "/moje-weby"
+
+@using System.Security.Claims @*Pro práci s identitou přihlášeného uživatele (zjištění jeho ID)*@
+@using Microsoft.AspNetCore.Components.Authorization
+@using SvatebniWeb.Web.Data
+@using SvatebniWeb.Web.Data.Models
+@using Microsoft.EntityFrameworkCore
+
+@inject ApplicationDbContext DbContext
+@*Pro získání informací o přihlášeném uživateli*@
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@*Umožňuje programově přesměrovat uživatele na jiné stránky*@
+@inject NavigationManager NavigationManager
+
+<PageTitle>Moje svatební weby</PageTitle>
+
+<h1>Moje svatební weby</h1>
+
+<p>Zde můžete spravovat všechny vaše vytvořené svatební stránky.</p>
+
+@* Tlačítko pro založení nového webu. Po kliknutí zavolá metodu CreateNewWeb definovanou v @code bloku. *@
+<button class="btn btn-primary" @onclick="CreateNewWeb">
+    Založit nový web
+</button>
+
+@*
+    PODMÍNĚNÉ ZOBRAZENÍ OBSAHU
+    Tento blok kódu řídí, co se uživateli zobrazí na základě stavu načítání dat.
+*@
+@if (userWeddings == null)
+{
+    @* Zobrazí se, dokud se data načítají z databáze (proměnná userWeddings ještě nebyla inicializována). *@
+    <p><em>Načítám vaše weby...</em></p>
+}
+else if (!userWeddings.Any())
+{
+    @* Zobrazí se, pokud se data načetla, ale uživatel zatím žádný web nevytvořil. *@
+    <p><em>Zatím jste nevytvořili žádný svatební web. Založte si svůj první!</em></p>
+}
+else
+{
+    @* Zobrazí se, pokud uživatel má alespoň jeden vytvořený web. Vykreslíme tabulku. *@
+    <table>
+        <thead>
+            <tr>
+                <th>Nadpis webu</th>
+                <th>URL adresa (/...)</th>
+                <th>Akce</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var wedding in userWeddings)
+            {
+                <tr>
+                    <td>@wedding.Title</td>
+                    <td>@wedding.UrlSlug</td>
+                    <td>
+                        <NavLink href="@($"/muj-web/{wedding.Id}")" class="btn btn-secondary">Upravit</NavLink>
+                        <a href="@($"/{wedding.UrlSlug}")" target="_blank" class="btn btn-info">Zobrazit</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    /// <summary>
+    /// Seznam svatebních webů, které patří aktuálně přihlášenému uživateli.
+    /// Otazník '?' značí, že proměnná může být null (než se data načtou).
+    /// </summary>
+    private List<Wedding>? userWeddings;
+
+    /// <summary>
+    /// Metoda životního cyklu komponenty. Zavolá se automaticky při její inicializaci.
+    /// Je ideálním místem pro asynchronní načítání dat z databáze.
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        // Získáme stav autentizace (informace o přihlášeném uživateli).
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        // Pokud je uživatel přihlášen...
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            // ...získáme jeho unikátní ID. To je nejdůležitější identifikátor.
+            var currentUserId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            // Pokud se podařilo ID získat...
+            if (currentUserId != null)
+            {
+                // ...načteme z databáze POUZE ty svatební weby, které patří danému uživateli.
+                // Toto je zásadní pro bezpečnost a oddělení dat uživatelů.
+                userWeddings = await DbContext.Weddings
+                    .Where(w => w.OwnerId == currentUserId)
+                    .OrderBy(w => w.Title)
+                    .ToListAsync();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Metoda, která se zavolá po kliknutí na tlačítko "Založit nový web".
+    /// </summary>
+    private void CreateNewWeb()
+    {
+        // Použijeme NavigationManager k přesměrování uživatele na editační stránku.
+        // Předáváme ID 0, což je signál pro EditWebsite.razor, že chceme vytvářet nový záznam.
+        NavigationManager.NavigateTo("/memberarea/muj-web/0");
+    }
+}

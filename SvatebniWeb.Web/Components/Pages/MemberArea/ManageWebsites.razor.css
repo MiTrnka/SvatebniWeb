@@ -1,0 +1,62 @@
+﻿/* Tento styl se aplikuje pouze na H1 v ManageWebsites.razor */
+h1 {
+    color: #2c3e50; /* Tmavě modro-šedá */
+    border-bottom: 2px solid #3498db; /* Modré podtržení */
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+/* Styly pro tabulku */
+table {
+    width: 100%;
+    border-collapse: collapse; /* Spojí rámečky buněk */
+    margin-top: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+th, td {
+    padding: 12px 15px;
+    border: 1px solid #ddd;
+    text-align: left;
+}
+
+thead tr {
+    background-color: #f4f6f7; /* Světle šedé pozadí hlavičky */
+}
+
+/* Základní styl pro všechna tlačítka v komponentě */
+.btn {
+    padding: 8px 15px;
+    border: none;
+    border-radius: 5px;
+    color: white;
+    cursor: pointer;
+    text-decoration: none; /* Odstraní podtržení u odkazů */
+    display: inline-block;
+    margin-right: 5px;
+}
+
+/* Specifické barvy pro tlačítka */
+.btn-primary {
+    background-color: #3498db; /* Modrá */
+}
+
+    .btn-primary:hover {
+        background-color: #2980b9;
+    }
+
+.btn-secondary {
+    background-color: #95a5a6; /* Šedá */
+}
+
+    .btn-secondary:hover {
+        background-color: #7f8c8d;
+    }
+
+.btn-info {
+    background-color: #17a2b8; /* Tyrkysová */
+}
+
+    .btn-info:hover {
+        background-color: #138496;
+    }

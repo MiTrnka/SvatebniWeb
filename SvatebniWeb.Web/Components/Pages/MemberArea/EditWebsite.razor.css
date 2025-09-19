@@ -1,0 +1,77 @@
+﻿/* Styly pro formulář a jeho prvky */
+.form-group {
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #333;
+}
+
+/* Styl pro textová pole */
+input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box; /* Zajišťuje, že padding a border jsou součástí šířky */
+}
+
+/* Styl pro pole s našeptáváním URL */
+.url-group {
+    display: flex; /* Umožní umístit prefix a pole vedle sebe */
+}
+
+.url-prefix {
+    padding: 10px;
+    background-color: #eee;
+    border: 1px solid #ccc;
+    border-right: none;
+    border-radius: 4px 0 0 4px; /* Zaoblení jen na levé straně */
+    color: #555;
+}
+
+.url-group input[type="text"] {
+    border-radius: 0 4px 4px 0; /* Zaoblení jen na pravé straně */
+}
+
+/* Chybová hláška pro validaci */
+.error-message {
+    color: #e74c3c; /* Červená barva pro chyby */
+    background-color: #fdd;
+    border: 1px solid #e74c3c;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+/* Základní styl pro tlačítka */
+.btn {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 5px;
+    color: white;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    margin-right: 10px;
+    font-size: 16px;
+}
+
+.btn-success {
+    background-color: #2ecc71; /* Zelená */
+}
+
+    .btn-success:hover {
+        background-color: #27ae60;
+    }
+
+.btn-secondary {
+    background-color: #95a5a6; /* Šedá */
+}
+
+    .btn-secondary:hover {
+        background-color: #7f8c8d;
+    }
