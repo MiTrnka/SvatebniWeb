@@ -55,7 +55,7 @@ namespace SvatebniWeb.Web
                 options.Password.RequireLowercase = false;
                 options.Password.RequireUppercase = false;
                 options.Password.RequireNonAlphanumeric = false;
-                options.Password.RequiredLength = 4;
+                options.Password.RequiredLength = 3;
             })
                 // Pøidání podpory pro uživatelské role (napø. "Admin", "User").
                 .AddRoles<IdentityRole>()
@@ -124,7 +124,7 @@ namespace SvatebniWeb.Web
                     // V pøípadì úspìšného pøihlášení pøesmìruje uživatele na stránku "/moje-weby".
                     return Results.LocalRedirect("/moje-weby");
                 }
-                // Pokud pøihlášení selže, uživatel je pøesmìrován zpìt na pøihlašovací stránku s chybovou zprávou. 
+                // Pokud pøihlášení selže, uživatel je pøesmìrován zpìt na pøihlašovací stránku s chybovou zprávou.
                 var errorMessage = "Neplatné pøihlašovací údaje.";
                 return Results.LocalRedirect($"/account/login?ErrorMessage={HttpUtility.UrlEncode(errorMessage)}");
             });

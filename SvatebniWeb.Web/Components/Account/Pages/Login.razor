@@ -1,13 +1,35 @@
-﻿@page "/account/login"
+﻿@* Definuje URL adresu, na které bude tato přihlašovací stránka dostupná. *@
+@page "/account/login"
 
+@* Nastaví titulek stránky, který se zobrazí v záložce prohlížeče. *@
 <PageTitle>Přihlášení</PageTitle>
 
 <div class="login-container">
     <h3>Přihlášení</h3>
 
+    @*
+        Toto je klíčový rozdíl oproti ostatním formulářům v aplikaci.
+        Používáme zde standardní HTML tag <form>, nikoli Blazor komponentu <EditForm>.
+        - 'action="/account/login"' říká prohlížeči, aby data z formuláře poslal přesně
+          na endpoint, který jsme definovali v Program.cs.
+        - 'method="post"' specifikuje, že se má použít HTTP metoda POST, což je standard
+          pro odesílání citlivých dat, jako jsou přihlašovací údaje.
+        Tento přístup způsobí plné znovunačtení stránky po odeslání, což je pro přihlášení
+        a odhlášení v tomto typu Blazor aplikace (Server-Side) doporučený postup.
+    *@
     <form action="/account/login" method="post">
+        @*
+            Nezbytná bezpečnostní komponenta. Vloží do formuláře skrytý, unikátní token.
+            Server (endpoint v Program.cs) tento token ověří a zajistí, že požadavek
+            na přihlášení byl odeslán skutečně z této stránky, a ne odjinud.
+            Chrání to aplikaci proti CSRF útokům.
+        *@
         <AntiforgeryToken />
 
+        @*
+            Pokud proměnná ErrorMessage obsahuje nějaký text (což se stane po neúspěšném
+            pokusu o přihlášení), zobrazí se tento blok s chybovou hláškou.
+        *@
         @if (!string.IsNullOrEmpty(ErrorMessage))
         {
             <div class="error-summary">
@@ -17,11 +39,18 @@
 
         <div class="form-field">
             <label for="email">E-mail:</label>
+            @*
+                Standardní HTML input. Atribut 'name="email"' je zásadní.
+                Jeho hodnota se musí přesně shodovat s názvem parametru
+                v našem endpointu v Program.cs ([FromForm] string email),
+                aby ASP.NET Core vědělo, jakou hodnotu kam přiřadit.
+            *@
             <input id="email" name="email" class="input-field" />
         </div>
 
         <div class="form-field">
             <label for="password">Heslo:</label>
+            @* Stejně jako u emailu, 'name="password"' se musí shodovat s názvem parametru v endpointu. *@
             <input id="password" name="password" type="password" class="input-field" />
         </div>
 
@@ -30,6 +59,15 @@
 </div>
 
 @code {
+    /// <summary>
+    /// Vlastnost pro uchování chybové zprávy.
+    /// Atribut [SupplyParameterFromQuery] je velmi užitečný. Říká Blazoru,
+    /// aby se pokusil naplnit tuto vlastnost z parametru v URL adrese.
+    /// Když nás Program.cs po neúspěšném přihlášení přesměruje na
+    /// "/account/login?ErrorMessage=...", Blazor automaticky vezme text
+    /// z parametru ErrorMessage a vloží ho do této vlastnosti, což umožní
+    /// jeho zobrazení v HTML části.
+    /// </summary>
     [SupplyParameterFromQuery]
     private string? ErrorMessage { get; set; }
 }

@@ -1,9 +1,11 @@
-﻿@page "/account/register"
+﻿@* Definuje URL adresu, na které bude tato registrační stránka dostupná. *@
+@page "/account/register"
+@* Importování jmenných prostorů, abychom mohli v kódu používat jejich třídy bez vypisování plné cesty. *@
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Identity
 @using SvatebniWeb.Web.Data
 
-@* Služby, které si "injektujeme" pro práci s uživateli a navigací. *@
+@* Injektáž služeb, které tato komponenta potřebuje pro svou funkci. *@
 @inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager NavigationManager
 
@@ -12,21 +14,27 @@
 <div class="register-container">
     <h3>Registrace nového uživatele</h3>
 
-    @* EditForm je základní komponenta pro formuláře v Blazoru.
-        - Model="Model": Propojí formulář s naším C# objektem 'Model'.
-        - OnValidSubmit="HandleRegister": Určuje metodu, která se zavolá po odeslání validního formuláře.
-        - FormName="RegisterForm": Dává formuláři unikátní jméno pro interní účely.
+    @*
+        Zde používáme Blazor komponentu <EditForm>, která je ideální pro formuláře
+        s validací a zpracováním na straně klienta i serveru bez nutnosti znovunačtení stránky.
+        - Model="Model": Propojuje formulář s naším C# objektem 'Model', který drží data.
+        - OnValidSubmit="HandleRegister": Určuje metodu v @code bloku, která se zavolá,
+          pokud formulář projde všemi validačními pravidly.
+        - FormName="RegisterForm": Dává formuláři unikátní jméno.
     *@
     <EditForm Model="Model" OnValidSubmit="HandleRegister" FormName="RegisterForm">
 
-        @* Tato komponenta automaticky zapne validaci podle pravidel definovaných v naší třídě RegisterModel. *@
+        @* Tato komponenta automaticky aktivuje validační mechanismus.
+            Přečte si pravidla (atributy jako [Required], [EmailAddress])
+            z naší třídy RegisterModel a vynutí jejich dodržování. *@
         <DataAnnotationsValidator />
 
-        @* Blok, který se zobrazí pouze v případě, že proces registrace selže. *@
+        @* Zobrazí tento blok pouze v případě, že proces registrace selže a seznam 'errorMessages' obsahuje nějaké zprávy. *@
         @if (errorMessages.Any())
         {
             <div class="error-summary">
                 <ul>
+                    @* Projde všechny chybové hlášky vrácené z UserManageru a zobrazí je jako seznam. *@
                     @foreach (var error in errorMessages)
                     {
                         <li>@error</li>
@@ -35,10 +43,15 @@
             </div>
         }
 
-        @* Každé pole formuláře zabalíme do vlastního kontejneru pro snadnější stylování. *@
+        @* Každé pole formuláře je obaleno v divu pro lepší strukturu a stylování. *@
         <div class="form-field">
             <label for="email">E-mail:</label>
+            @* Komponenta InputText je inteligentní textové pole, které je obousměrně
+                svázáno s vlastností modelu (@bind-Value="Model.Email"). Jakákoliv změna
+                v poli se okamžitě projeví v modelu a naopak. *@
             <InputText id="email" class="input-field" @bind-Value="Model.Email" />
+            @* Komponenta ValidationMessage automaticky zobrazí chybovou hlášku
+                specifickou pro pole 'Email', pokud jeho hodnota nevyhovuje validačním pravidlům. *@
             <ValidationMessage For="() => Model.Email" />
         </div>
 
@@ -61,42 +74,50 @@
 
 @code {
     /// <summary>
-    /// Instance našeho modelu, která drží data z formuláře.
+    /// Vytvoří novou instanci třídy RegisterModel. Tento objekt slouží jako "datový kontejner"
+    /// pro náš formulář. Všechny hodnoty zadané uživatelem se ukládají do jeho vlastností.
     /// </summary>
     private RegisterModel Model { get; set; } = new();
 
     /// <summary>
-    /// Seznam chybových hlášek pro zobrazení uživateli.
+    /// Seznam pro uchování textů chybových hlášek, které mohou vzniknout
+    /// během procesu registrace (např. "heslo je příliš krátké", "email již existuje").
     /// </summary>
     private List<string> errorMessages = new();
 
     /// <summary>
-    /// Metoda, která se spustí po odeslání validního formuláře.
+    /// Asynchronní metoda, která se spustí po odeslání formuláře, POKUD jsou všechna pole
+    /// validní podle pravidel definovaných v RegisterModel.
     /// </summary>
     private async Task HandleRegister()
     {
-        errorMessages.Clear();
+        errorMessages.Clear(); // Vyčistí případné staré chybové hlášky.
 
+        // Vytvoří novou instanci uživatele (ApplicationUser) a naplní ji daty z formuláře.
         var user = new ApplicationUser
         {
             UserName = Model.Email,
             Email = Model.Email
         };
 
-        // Pokusíme se uživatele vytvořit pomocí služby UserManager.
+        // Zde se volá klíčová služba z ASP.NET Core Identity.
+        // UserManager se pokusí vytvořit nového uživatele v databázi s daným heslem.
+        // Heslo se samozřejmě bezpečně zahashuje.
         var result = await UserManager.CreateAsync(user, Model.Password);
 
         if (result.Succeeded)
         {
-            // Pokud se registrace podařila, přiřadíme novému uživateli roli "User".
+            // Pokud byla registrace úspěšná, přiřadíme novému uživateli základní roli "User".
             await UserManager.AddToRoleAsync(user, "User");
 
-            // Přesměrujeme uživatele na stránku pro přihlášení.
+            // Pomocí NavigationManageru přesměrujeme uživatele na přihlašovací stránku.
             NavigationManager.NavigateTo("/account/login");
         }
         else
         {
-            // Pokud došlo k chybě, uložíme popis chyb pro zobrazení.
+            // Pokud registrace selhala (např. email již existuje),
+            // projdeme všechny chyby, které UserManager vrátil, a přidáme je
+            // do našeho seznamu 'errorMessages', aby se zobrazily uživateli.
             foreach (var error in result.Errors)
             {
                 errorMessages.Add(error.Description);
@@ -105,20 +126,25 @@
     }
 
     /// <summary>
-    /// Třída sloužící jako model pro registrační formulář.
-    /// Definuje vlastnosti pro jednotlivá pole a jejich validační pravidla.
+    /// Tzv. "view model" nebo "data transfer object". Je to jednoduchá C# třída,
+    /// která slouží pouze k přenosu dat mezi formulářem (view) a logikou komponenty.
+    /// Její hlavní silou jsou "DataAnnotations" - atributy v hranatých závorkách.
     /// </summary>
     public class RegisterModel
     {
+        // [Required] říká, že pole nesmí být prázdné.
+        // [EmailAddress] kontroluje, zda má text formát platné e-mailové adresy.
         [Required(ErrorMessage = "E-mail je povinný.")]
         [EmailAddress(ErrorMessage = "Zadejte platnou e-mailovou adresu.")]
         public string Email { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Heslo je povinné.")]
-        [DataType(DataType.Password)]
+        [DataType(DataType.Password)] // Pomáhá nástrojům (a Blazoru) pochopit, že jde o heslo.
         public string Password { get; set; } = string.Empty;
 
         [DataType(DataType.Password)]
+        // [Compare] je velmi užitečný atribut, který ověří, že hodnota v tomto poli
+        // se přesně shoduje s hodnotou v poli "Password".
         [Compare("Password", ErrorMessage = "Hesla se neshodují.")]
         public string ConfirmPassword { get; set; } = string.Empty;
     }

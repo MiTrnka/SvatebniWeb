@@ -5,6 +5,10 @@ a snadno zapamatovatelné URL adresy (tzv. "slug").
 Definuje routovací šablonu pro tuto stránku. Říká, že tato komponenta
 se zobrazí pro jakoukoliv URL adresu, která následuje za kořenem webu
 (např. "mujweb.cz/novakovi"). Text "novakovi" bude zachycen do parametru 'UrlSlug'. *@
+
+@* Aby se aplikoval na místo defaultního layoutu tento prázdný *@
+@layout SvatebniWeb.Web.Components.Layout.EmptyLayout
+
 @page "/{UrlSlug}"
 
 @using SvatebniWeb.Web.Data
