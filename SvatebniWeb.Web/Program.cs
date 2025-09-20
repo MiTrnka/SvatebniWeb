@@ -118,7 +118,7 @@ namespace SvatebniWeb.Web
             app.MapPost("/account/login", async (HttpContext httpContext, SignInManager<ApplicationUser> signInManager, [FromForm] string email, [FromForm] string password) =>
             {
                 // Pokus o pøihlášení uživatele pomocí SignInManageru.
-                var result = await signInManager.PasswordSignInAsync(email, password, isPersistent: false, lockoutOnFailure: false);
+                var result = await signInManager.PasswordSignInAsync(email, password, isPersistent: true, lockoutOnFailure: false);
                 if (result.Succeeded)
                 {
                     // V pøípadì úspìšného pøihlášení pøesmìruje uživatele na stránku "/moje-weby".
