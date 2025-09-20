@@ -1,18 +1,18 @@
-﻿@* Stránka se seznamem uživatelových svatebních webů*@
-@page "/moje-weby"
+﻿@page "/moje-weby"
+@* Atribut [Authorize] je klíčový pro zabezpečení. Zajišťuje, že na tuto stránku
+může vstoupit pouze přihlášený uživatel. Nepřihlášený uživatel bude automaticky
+přesměrován na přihlašovací stránku. *@
 @attribute [Authorize]
 
-@using System.Security.Claims @*Pro práci s identitou přihlášeného uživatele (zjištění jeho ID)*@
-@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims @* Potřebné pro práci s informacemi (claims) o identitě uživatele, konkrétně pro získání jeho ID. *@
+@using Microsoft.AspNetCore.Components.Authorization @* Pro práci se stavem autentizace. *@
 @using SvatebniWeb.Web.Data
 @using SvatebniWeb.Web.Data.Models
 @using Microsoft.EntityFrameworkCore
 
-@inject ApplicationDbContext DbContext
-@*Pro získání informací o přihlášeném uživateli*@
-@inject AuthenticationStateProvider AuthenticationStateProvider
-@*Umožňuje programově přesměrovat uživatele na jiné stránky*@
-@inject NavigationManager NavigationManager
+@inject ApplicationDbContext DbContext // Služba pro komunikaci s databází.
+@inject AuthenticationStateProvider AuthenticationStateProvider // Služba pro zjištění informací o aktuálně přihlášeném uživateli.
+@inject NavigationManager NavigationManager // Služba, která umožňuje programové přecházení mezi stránkami (navigaci).
 
 <PageTitle>Moje svatební weby</PageTitle>
 
@@ -20,28 +20,25 @@
 
 <p>Zde můžete spravovat všechny vaše vytvořené svatební stránky.</p>
 
-@* Tlačítko pro založení nového webu. Po kliknutí zavolá metodu CreateNewWeb definovanou v @code bloku. *@
 <button class="btn btn-primary" @onclick="CreateNewWeb">
     Založit nový web
 </button>
 
-@*
-    PODMÍNĚNÉ ZOBRAZENÍ OBSAHU
-    Tento blok kódu řídí, co se uživateli zobrazí na základě stavu načítání dat.
-*@
+@* Tento blok řídí, co se zobrazí na stránce v závislosti na stavu načítání dat. *@
 @if (userWeddings == null)
 {
-    @* Zobrazí se, dokud se data načítají z databáze (proměnná userWeddings ještě nebyla inicializována). *@
+    // Zobrazí se, pokud data ještě nebyla načtena z databáze (seznam userWeddings je null).
     <p><em>Načítám vaše weby...</em></p>
 }
 else if (!userWeddings.Any())
 {
-    @* Zobrazí se, pokud se data načetla, ale uživatel zatím žádný web nevytvořil. *@
+    // Zobrazí se, pokud je seznam načtený, ale je prázdný (uživatel nemá žádné weby).
     <p><em>Zatím jste nevytvořili žádný svatební web. Založte si svůj první!</em></p>
 }
 else
 {
-    @* Zobrazí se, pokud uživatel má alespoň jeden vytvořený web. Vykreslíme tabulku. *@
+    // Zobrazí se, pokud seznam obsahuje alespoň jeden svatební web.
+    // Vykreslí se HTML tabulka s daty.
     <table>
         <thead>
             <tr>
@@ -51,13 +48,18 @@ else
             </tr>
         </thead>
         <tbody>
+
             @foreach (var wedding in userWeddings)
             {
+                // Pro každý web v seznamu se vygeneruje jeden řádek v tabulce.
                 <tr>
                     <td>@wedding.Title</td>
                     <td>@wedding.UrlSlug</td>
                     <td>
+                        @* Komponenta NavLink se chová jako odkaz, ale podporuje klientské routování Blazoru (bez znovunačtení stránky).
+                        Směřuje na stránku pro úpravu konkrétního webu, přičemž do URL vkládá jeho ID. *@
                         <NavLink href="@($"/muj-web/{wedding.Id}")" class="btn btn-secondary">Upravit</NavLink>
+                        @* Standardní HTML odkaz, který otevře veřejnou verzi webu v nové záložce. *@
                         <a href="@($"/{wedding.UrlSlug}")" target="_blank" class="btn btn-info">Zobrazit</a>
                     </td>
                 </tr>
@@ -67,33 +69,34 @@ else
 }
 
 @code {
-    /// <summary>
-    /// Seznam svatebních webů, které patří aktuálně přihlášenému uživateli.
-    /// Otazník '?' značí, že proměnná může být null (než se data načtou).
-    /// </summary>
+    // Privátní pole pro uložení seznamu svatebních webů načtených z databáze.
+    // Otazník značí, že hodnota může být 'null', což je výchozí stav před načtením dat.
     private List<Wedding>? userWeddings;
 
     /// <summary>
-    /// Metoda životního cyklu komponenty. Zavolá se automaticky při její inicializaci.
-    /// Je ideálním místem pro asynchronní načítání dat z databáze.
+    /// Metoda životního cyklu komponenty. Je volána automaticky při její inicializaci.
+    /// Je to preferované místo pro provádění asynchronních operací, jako je načítání dat.
     /// </summary>
     protected override async Task OnInitializedAsync()
     {
-        // Získáme stav autentizace (informace o přihlášeném uživateli).
+        // Získáme aktuální stav přihlášení uživatele.
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
 
-        // Pokud je uživatel přihlášen...
+        // Ověříme, zda je uživatel skutečně přihlášen.
         if (user.Identity?.IsAuthenticated == true)
         {
-            // ...získáme jeho unikátní ID. To je nejdůležitější identifikátor.
+            // Z identity uživatele získáme jeho unikátní ID. To je klíčový identifikátor
+            // uložený v databázi při registraci.
             var currentUserId = user.FindFirstValue(ClaimTypes.NameIdentifier);
 
             // Pokud se podařilo ID získat...
             if (currentUserId != null)
             {
-                // ...načteme z databáze POUZE ty svatební weby, které patří danému uživateli.
-                // Toto je zásadní pro bezpečnost a oddělení dat uživatelů.
+                // ...provedeme dotaz do databáze. Načteme pouze ty svatební weby,
+                // které mají v sloupci 'OwnerId' hodnotu shodnou s ID přihlášeného uživatele.
+                // To je zásadní pro bezpečnost, aby uživatel neviděl cizí data.
+                // Výsledky seřadíme abecedně podle titulku.
                 userWeddings = await DbContext.Weddings
                     .Where(w => w.OwnerId == currentUserId)
                     .OrderBy(w => w.Title)
@@ -103,12 +106,13 @@ else
     }
 
     /// <summary>
-    /// Metoda, která se zavolá po kliknutí na tlačítko "Založit nový web".
+    /// Metoda volaná po kliknutí na tlačítko "Založit nový web".
     /// </summary>
     private void CreateNewWeb()
     {
-        // Použijeme NavigationManager k přesměrování uživatele na editační stránku.
-        // Předáváme ID 0, což je signál pro EditWebsite.razor, že chceme vytvářet nový záznam.
+        // Pomocí NavigationManageru přesměrujeme uživatele na stránku pro editaci.
+        // Adresa '/muj-web/0' je konvence, která říká editační stránce,
+        // že se nemá načítat existující záznam, ale má se vytvořit nový.
         NavigationManager.NavigateTo("/muj-web/0");
     }
 }

@@ -1,9 +1,10 @@
-﻿@*
-    DEFINICE STRÁNKY
-    Routa je zde nastavena na "/{UrlSlug}". To znamená, že bude reagovat na jakoukoliv
-    adresu v kořeni webu, např. "/Trnkovi", "/Novakovi". Blazor automaticky
-    předá text z URL do parametru [Parameter] public string UrlSlug.
-*@
+﻿@* Tato komponenta (stránka) reprezentuje veřejně přístupný svatební web.
+Je navržena tak, aby zobrazila detaily konkrétní svatby na základě unikátní
+a snadno zapamatovatelné URL adresy (tzv. "slug").
+
+Definuje routovací šablonu pro tuto stránku. Říká, že tato komponenta
+se zobrazí pro jakoukoliv URL adresu, která následuje za kořenem webu
+(např. "mujweb.cz/novakovi"). Text "novakovi" bude zachycen do parametru 'UrlSlug'. *@
 @page "/{UrlSlug}"
 
 @using SvatebniWeb.Web.Data
@@ -12,24 +13,24 @@
 
 @inject ApplicationDbContext DbContext
 
-@*
-    PODMÍNĚNÉ ZOBRAZENÍ
-    Nejprve zkontrolujeme, jestli jsme našli odpovídající svatební web.
-*@
+@* Podmíněné zobrazení obsahu. Nejprve se zkontroluje, zda byla v databázi
+nalezena odpovídající svatba a je uložena v proměnné 'wedding'. *@
 @if (wedding != null)
 {
-    @* Pokud ano, nastavíme titulek stránky a zobrazíme hlavní nadpis. *@
+    // Pokud byl svatební web nalezen, nastaví se titulek stránky (viditelný v záložce prohlížeče).
     <PageTitle>Svatba: @wedding.Title</PageTitle>
 
+    // Zobrazení samotného obsahu stránky.
     <div class="container">
         <h1>@wedding.Title</h1>
         <p>Vítejte na našem svatebním webu!</p>
-        @* Zde v budoucnu přijdou další informace: fotky, program, atd. [cite: 7] *@
+        @* Zde v budoucnu přijdou další informace: fotky, program, atd. *@
     </div>
 }
 else
 {
-    @* Pokud web s daným UrlSlug neexistuje, zobrazíme chybovou hlášku. *@
+    // Pokud svatební web s danou URL adresou nebyl v databázi nalezen,
+    // zobrazí se uživateli chybová stránka.
     <PageTitle>Stránka nenalezena</PageTitle>
     <div class="container">
         <h1>Svatební web nenalezen</h1>
@@ -38,29 +39,31 @@ else
 }
 
 @code {
-    /// <summary>
-    /// Tento parametr se automaticky naplní z URL adresy.
-    /// Např. pro URL "/Trnkovi" bude hodnota "Trnkovi".
-    /// </summary>
+    // Vlastnost, do které Blazor automaticky uloží hodnotu z URL adresy.
+    // Atribut [Parameter] je klíčový pro propojení s routovacím parametrem "{UrlSlug}".
     [Parameter]
     public string? UrlSlug { get; set; }
 
-    /// <summary>
-    /// Objekt, který bude držet data o svatbě načtená z databáze.
-    /// </summary>
+    // Privátní pole pro uložení dat o svatbě načtených z databáze.
+    // Je typu Wedding (model definující data o svatbě) a může být null,
+    // pokud se data ještě nenačetla nebo pokud svatba neexistuje.
     private Wedding? wedding;
 
     /// <summary>
-    /// Metoda životního cyklu, která se zavolá, když komponenta přijme parametry.
-    /// Zde načteme data z databáze na základě UrlSlug z adresy.
+    /// Metoda životního cyklu komponenty. Spustí se pokaždé, když komponenta
+    /// obdrží nové nebo změněné parametry zvenčí (v tomto případě z URL).
+    /// Je to vhodné místo pro načtení dat závislých na těchto parametrech.
     /// </summary>
     protected override async Task OnParametersSetAsync()
     {
+        // Ujistíme se, že UrlSlug má nějakou hodnotu, než se pokusíme hledat v databázi.
         if (!string.IsNullOrEmpty(UrlSlug))
         {
-            // Najdeme v databázi první záznam, jehož UrlSlug odpovídá tomu z adresy.
-            // Používáme .FirstOrDefaultAsync(), který vrátí null, pokud nic nenajde.
-            // .AsNoTracking() je optimalizace pro čtení dat - říká EF, aby data nesledoval pro případné změny.
+            // Provedení asynchronního databázového dotazu.
+            // .AsNoTracking() je výkonnostní optimalizace, která říká Entity Frameworku,
+            // že data pouze čteme a nebudeme je měnit. EF je pak nemusí "sledovat".
+            // .FirstOrDefaultAsync() vyhledá první svatbu, jejíž UrlSlug se shoduje
+            // s tím v naší proměnné. Pokud žádnou nenajde, bezpečně vrátí null.
             wedding = await DbContext.Weddings
                 .AsNoTracking()
                 .FirstOrDefaultAsync(w => w.UrlSlug == UrlSlug);

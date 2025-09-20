@@ -1,31 +1,43 @@
-﻿@page "/muj-web/{Id:int}"
+﻿@* Definuje routovací šablonu pro tuto stránku. Bude reagovat na URL jako "/muj-web/1", "/muj-web/25", atd.
+"{Id:int}" je routovací parametr, který zajišťuje, že do proměnné 'Id' bude předána pouze celočíselná hodnota z URL. *@
+@page "/muj-web/{Id:int}"
+@* Zabezpečuje, že na tuto stránku může přistoupit pouze přihlášený uživatel. *@
 @attribute [Authorize]
 
-@*
-    Přidali jsme @using System.Security.Claims, abychom mohli snadno
-    získat ID aktuálně přihlášeného uživatele.
-*@
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
 @using SvatebniWeb.Web.Data
 @using SvatebniWeb.Web.Data.Models
 
-@inject ApplicationDbContext DbContext
-@inject NavigationManager NavigationManager
-@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ApplicationDbContext DbContext // Pro přímou práci s databází.
+@inject NavigationManager NavigationManager // Pro programové přesměrování uživatele na jiné stránky.
+@inject AuthenticationStateProvider AuthenticationStateProvider // Pro zjištění informací o přihlášeném uživateli.
 
+@* Nastavení titulku stránky, který se dynamicky mění podle toho, zda se vytváří nový web nebo edituje existující. *@
 <PageTitle>@pageTitle</PageTitle>
 
 <h3>@pageTitle</h3>
 
+@*
+    Podmíněné zobrazení: Formulář se zobrazí pouze tehdy, pokud je objekt 'wedding' úspěšně načten a připraven.
+    To zabraňuje chybám a také skryje formulář v případě, že uživatel nemá oprávnění k editaci.
+*@
 @if (wedding != null)
 {
-    @* Formulář zůstává beze změny *@
+    @*
+        Komponenta EditForm je základní stavební kámen pro formuláře v Blazoru.
+        'Model' určuje, který objekt se bude editovat.
+        'OnValidSubmit' definuje metodu, která se spustí, pokud formulář projde všemi validacemi.
+        'FormName' dává formuláři unikátní název.
+    *@
     <EditForm Model="wedding" OnValidSubmit="HandleValidSubmit" FormName="EditWedding">
+        @* Komponenta, která automaticky zapíná validaci na základě DataAnnotations v modelu (např. [Required]). *@
         <DataAnnotationsValidator />
+        @* Komponenta, která zobrazí souhrn všech validačních chyb na jednom místě. *@
         <ValidationSummary />
 
+        @* Zobrazí chybovou hlášku, pokud nastane specifická chyba při ukládání (např. duplicitní URL). *@
         @if (!string.IsNullOrEmpty(errorMessage))
         {
             <div class="error-summary">@errorMessage</div>
@@ -33,7 +45,9 @@
 
         <div class="form-field">
             <label for="title">Hlavní nadpis webu:</label>
+            @* InputText je komponenta pro textové pole, která je obousměrně svázána s vlastností modelu ('@bind-Value'). *@
             <InputText id="title" class="input-field" @bind-Value="wedding.Title" />
+            @* Zobrazí validační hlášku specificky pro pole 'Title', pokud jeho hodnota není platná. *@
             <ValidationMessage For="() => wedding.Title" />
         </div>
 
@@ -53,94 +67,119 @@
 else
 {
     @*
-        Pokud se data stále načítají NEBO pokud uživatel nemá oprávnění,
-        zobrazíme tuto zprávu.
+        Tento blok se zobrazí, dokud se data načítají, nebo pokud načtení selže
+        z důvodu neexistence záznamu nebo nedostatku oprávnění.
     *@
     <p><em>@loadingMessage</em></p>
 }
 
 @code {
+    /// <summary>
+    /// Vlastnost, do které Blazor automaticky přiřadí hodnotu z routovacího parametru "{Id:int}".
+    /// </summary>
     [Parameter]
     public int Id { get; set; }
 
+    // Privátní pole pro uchování dat o svatbě, která se edituje nebo vytváří.
     private Wedding? wedding;
+    // Proměnná pro dynamický titulek stránky.
     private string pageTitle = "Načítání...";
+    // Proměnná pro uchování chybové hlášky, která se zobrazí uživateli (např. o duplicitní URL).
     private string? errorMessage;
-    private string loadingMessage = "Načítám data..."; // Přidali jsme proměnnou pro načítací/chybovou hlášku
+    // Proměnná pro zprávu zobrazenou během načítání nebo v případě chyby oprávnění.
+    private string loadingMessage = "Načítám data...";
 
     /// <summary>
-    /// Metoda životního cyklu, která se zavolá při načtení komponenty.
-    /// Zde provádíme klíčové bezpečnostní kontroly.
+    /// Metoda životního cyklu komponenty. Spustí se pokaždé, když komponenta
+    /// obdrží nové parametry (v tomto případě při načtení stránky s konkrétním ID v URL).
+    /// Zde probíhá načítání dat a klíčové bezpečnostní kontroly.
     /// </summary>
     protected override async Task OnParametersSetAsync()
     {
-        // Získáme stav přihlášení a ID aktuálního uživatele.
+        // Získáme informace o přihlášeném uživateli.
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        // Z informací o uživateli vytáhneme jeho unikátní ID.
         var currentUserId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-        // Pojistka pro případ, že by se sem dostal nepřihlášený uživatel.
-        // I když máme [Authorize], je dobré mít obranu i zde.
+        // Ačkoliv stránku chrání atribut [Authorize], je dobrou praxí mít
+        // i interní pojistku pro případ, že by se ID uživatele nepodařilo získat.
         if (string.IsNullOrEmpty(currentUserId))
         {
-            NavigationManager.NavigateTo("/login");
-            return;
+            NavigationManager.NavigateTo("/login"); // Přesměrování na login
+            return; // Ukončení metody
         }
 
-        if (Id == 0) // Režim: Vytvoření nového webu
+        // Rozlišení mezi režimem "Vytvořit nový" a "Editovat existující".
+        // Konvence je, že ID 0 značí vytvoření nového záznamu.
+        if (Id == 0)
         {
             pageTitle = "Založení nového svatebního webu";
+            // Vytvoříme novou, prázdnou instanci objektu Wedding.
             wedding = new Wedding
             {
                 Title = "",
                 UrlSlug = "",
-                OwnerId = currentUserId // Důležité: Novému webu rovnou přiřadíme vlastníka
+                // Toto je klíčové: Nově vytvářenému webu rovnou přiřadíme ID aktuálního
+                // uživatele jako vlastníka. Tím je zajištěno, že záznam bude patřit jemu.
+                OwnerId = currentUserId
             };
         }
-        else // Režim: Editace existujícího webu
+        else // Pokud je ID jiné než 0, jsme v režimu editace.
         {
             pageTitle = "Úprava svatebního webu";
-            // Najdeme web v databázi podle ID z URL.
+            // Pokusíme se načíst existující záznam z databáze podle ID z URL.
             wedding = await DbContext.Weddings.FindAsync(Id);
 
             // =================================================================
-            // ZDE JE NOVÁ, KLÍČOVÁ BEZPEČNOSTNÍ KONTROLA
+            // KLÍČOVÁ BEZPEČNOSTNÍ KONTROLA
             // =================================================================
-            // Ověříme, že načtený web existuje A ZÁROVEŇ že jeho OwnerId
-            // se shoduje s ID přihlášeného uživatele.
+            // Po načtení záznamu musíme ověřit dvě věci:
+            // 1. Zda záznam vůbec existuje (wedding == null).
+            // 2. Zda ID vlastníka záznamu (wedding.OwnerId) odpovídá ID aktuálně
+            //    přihlášeného uživatele (currentUserId).
+            // Tímto zabráníme tomu, aby si uživatel změnou ID v URL mohl editovat cizí web.
             if (wedding == null || wedding.OwnerId != currentUserId)
             {
-                // Pokud ne, zabráníme v editaci!
-                // Změníme zprávu a nastavíme 'wedding' na null, aby se nezobrazil formulář.
+                // Pokud kontrola selže, zobrazíme chybovou hlášku...
                 loadingMessage = "Tento záznam neexistuje nebo k němu nemáte oprávnění.";
+                // ...a nastavíme objekt 'wedding' na null, což způsobí, že se nezobrazí editační formulář.
                 wedding = null;
             }
         }
     }
 
     /// <summary>
-    /// Metoda pro uložení formuláře. Zůstává beze změny.
+    /// Metoda, která se spustí po odeslání validního formuláře.
+    /// Zpracuje uložení dat do databáze.
     /// </summary>
     private async Task HandleValidSubmit()
     {
-        errorMessage = null;
-        if (wedding == null) return;
+        errorMessage = null; // Vynulujeme případnou předchozí chybovou hlášku.
+        if (wedding == null) return; // Pojistka, pokud by byl objekt null.
 
+        // Zkontrolujeme, zda již v databázi neexistuje jiný web se stejným UrlSlug.
+        // Musíme vyloučit právě editovaný záznam (w.Id != wedding.Id).
         var slugExists = await DbContext.Weddings.AnyAsync(w => w.UrlSlug == wedding.UrlSlug && w.Id != wedding.Id);
         if (slugExists)
         {
             errorMessage = "Tento text do URL adresy je již použit. Zvolte prosím jiný.";
-            return;
+            return; // Ukončíme metodu a zobrazíme chybu.
         }
 
+        // Podle ID rozhodneme, zda se jedná o nový nebo existující záznam.
         if (Id == 0)
         {
+            // Přidání nového záznamu do kontextu pro sledování změn.
             DbContext.Weddings.Add(wedding);
         }
         else
         {
+            // Označení existujícího záznamu jako změněného.
             DbContext.Weddings.Update(wedding);
         }
+        // Provedení samotného uložení změn do databáze.
         await DbContext.SaveChangesAsync();
+        // Přesměrování uživatele zpět na seznam jeho webů.
         NavigationManager.NavigateTo("/moje-weby");
     }
 }
